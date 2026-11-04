@@ -1,0 +1,21 @@
+# Scope is the safety boundary. The default file is intentionally lab-only.
+#
+# Matching is exact on normalized host:port. A missing port in a target URL is
+# normalized to the scheme default (80/443) before matching. Entries must include
+# an explicit port so there is no ambiguity.
+#
+# Bundled lab (this repo):      127.0.0.1:5117 / localhost:5117
+# Optional local Juice Shop:    127.0.0.1:3000 / localhost:3000
+# Optional local DVWA:          127.0.0.1:8080 / localhost:8080
+#
+# Do not add a host you do not own or are not authorized to test.
+
+[scope]
+hosts = [
+  "127.0.0.1:5117",
+  "localhost:5117",
+  "127.0.0.1:3000",
+  "localhost:3000",
+  "127.0.0.1:8080",
+  "localhost:8080",
+]

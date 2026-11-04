@@ -1,0 +1,14 @@
+# Runtime output. Never commit evidence, logs, or local environment files.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+evidence/*
+!evidence/.gitkeep
+logs/*
+!logs/.gitkeep
+.env
+dist/
+build/
+*.egg-info/
