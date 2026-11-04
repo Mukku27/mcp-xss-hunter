@@ -52,6 +52,7 @@ class PayloadAttempt:
     context: str
     sub_context: str
     payload: str
+    nonce: str
     signal: str
     requires_interaction: bool
     why: str
@@ -253,6 +254,7 @@ def _render(payload: Payload, point: InjectionPoint | None, nonce: str) -> Paylo
         context=payload.context,
         sub_context=point.sub_context if point is not None else payload.sub_context,
         payload=payload.template.replace(NONCE_SLOT, nonce),
+        nonce=nonce,
         signal=payload.signal,
         requires_interaction=payload.requires_interaction,
         why=payload.why,
@@ -290,6 +292,7 @@ def select_override(context: str, nonce: str | None = None) -> PayloadAttempt:
         context=attempt.context,
         sub_context="reviewer_override",
         payload=attempt.payload,
+        nonce=attempt.nonce,
         signal=attempt.signal,
         requires_interaction=attempt.requires_interaction,
         why=attempt.why,

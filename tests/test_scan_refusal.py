@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import quote
 
 from xss_hunter.logging_jsonl import JsonlLogger
 from xss_hunter.scan import scan
@@ -59,12 +60,60 @@ def test_empty_allowlist_refuses(tmp_path):
 
 
 def test_allowed_target_does_not_claim_a_result_yet(lab, tmp_path):
-    # M3 classifies the marker and selects a payload, but there is no browser
-    # verifier yet. It must say "blocked", never "no XSS", and never invent a
-    # finding.
+    # M4 observes a real dialog but has no replay step. It must say "blocked",
+    # never "no XSS", and never publish the observed signal as a finding.
     base, host, _ = lab
     result = run(f"{base}/body", hosts=(host,), tmp_path=tmp_path)
     assert result.status == "blocked"
     assert result.confirmed == []
-    assert result.could_not_proceed[0].stage == "verify"
+    assert result.could_not_proceed[0].stage == "replay"
     assert "html_body/html_text" in result.could_not_proceed[0].reason
+
+
+def test_reflection_only_encoded_parameter_is_held_not_confirmed(lab, tmp_path):
+    # The money test, run twice: the marker reflects, the payload does not
+    # execute, and the run is a held result with a specific reason.
+    base, host, _ = lab
+    for attempt in (1, 2):
+        result = run(
+            f"{base}/encoded",
+            hosts=(host,),
+            tmp_path=tmp_path / f"run{attempt}",
+        )
+        assert result.status == "completed", attempt
+        assert result.confirmed == [], attempt
+        assert result.could_not_proceed == [], attempt
+        assert len(result.tested_held) == 1, attempt
+        assert result.tested_held[0].reason == "payload_did_not_execute", attempt
+        assert result.totals.confirmed == 0, attempt
+
+
+def test_s5_blocks_an_off_scope_subresource_before_any_canary_hit(lab, canary, tmp_path):
+    base, host, _ = lab
+    canary_base, hits = canary
+    result = run(
+        f"{base}/external?to={quote(canary_base + '/escape', safe='')}",
+        hosts=(host,),
+        tmp_path=tmp_path,
+    )
+
+    assert result.status == "blocked"
+    assert result.error.code == "OUT_OF_SCOPE"
+    assert result.error.checkpoint == "S5"
+    assert hits == []
+    assert any(refusal.checkpoint == "S5" for refusal in result.scope_refusals)
+
+
+def test_s5_blocks_a_meta_refresh_to_an_off_scope_host(lab, canary, tmp_path):
+    base, host, _ = lab
+    canary_base, hits = canary
+    result = run(
+        f"{base}/meta?to={quote(canary_base + '/escape', safe='')}",
+        hosts=(host,),
+        tmp_path=tmp_path,
+    )
+
+    assert result.status == "blocked"
+    assert result.error.code == "OUT_OF_SCOPE"
+    assert result.error.checkpoint == "S5"
+    assert hits == []

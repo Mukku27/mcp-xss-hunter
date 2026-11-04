@@ -37,6 +37,8 @@ class ReplayProof(BaseModel):
 
 class Finding(BaseModel):
     finding_id: str
+    url: str
+    parameter: str
     context: str
     sub_context: str
     payload: str
@@ -110,6 +112,7 @@ class Artifact(BaseModel):
 class Evidence(BaseModel):
     finding_id: str
     run_id: str
+    evidence: str
     url: str
     parameter: str
     context: str

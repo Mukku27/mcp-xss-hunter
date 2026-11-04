@@ -11,7 +11,8 @@ import re
 from pathlib import Path
 
 from .classify import classify, distinct_points
-from .ids import new_nonce
+from .evidence import write_observation, write_run, write_status
+from .ids import finding_id, new_nonce, path_of
 from .logging_jsonl import JsonlLogger
 from .models import (
     Blocked,
@@ -21,11 +22,12 @@ from .models import (
     Target,
     Totals,
 )
-from .payloads import select, select_override
+from .payloads import PayloadAttempt, select, select_override
 from .probe import probe
 from .result import bound_scan
 from .runctx import RunContext
 from .scope import Scope
+from .verify import BrowserSession, Verification
 
 PARAMETER_RE = re.compile(r"^[A-Za-z0-9_.\[\]-]{1,128}$")
 CONTEXT_OVERRIDES = frozenset({"html_body", "attribute", "script", "url"})
@@ -44,11 +46,23 @@ def _base_response(run: RunContext, url: str, host: str, scope: str) -> ScanResp
 
 def _finish(run: RunContext, response: ScanResponse) -> ScanResponse:
     """Stamp measured limits/refusals at the end, then bound the arrays."""
-    return bound_scan(
+    bounded = bound_scan(
         response.model_copy(
             update={"limits": run.limits(), "scope_refusals": run.refusals}
         )
     )
+    try:
+        write_run(run, bounded)
+        write_status(run, bounded)
+    except Exception as exc:  # noqa: BLE001 - evidence I/O must not crash a scan
+        run.logger.log(
+            event="error",
+            run_id=run.run_id,
+            tool=run.tool,
+            reason="evidence_write_failed",
+            detail=type(exc).__name__,
+        )
+    return bounded
 
 
 def _blocked(
@@ -60,14 +74,19 @@ def _blocked(
     reason: str,
     needs: str,
     checkpoint: str | None = None,
+    held: list[Held] | None = None,
 ) -> ScanResponse:
+    held = held or []
     return _finish(
         run,
         base.model_copy(
             update={
                 "status": "blocked",
+                "tested_held": held,
                 "could_not_proceed": [Blocked(stage=stage, reason=reason, needs=needs)],
-                "totals": Totals(confirmed=0, tested_held=0, could_not_proceed=1),
+                "totals": Totals(
+                    confirmed=0, tested_held=len(held), could_not_proceed=1
+                ),
                 "error": ErrorInfo(
                     code=code,
                     message=f"{stage}: {reason}",
@@ -205,43 +224,176 @@ def scan(
     else:
         candidates = [(point, select(point, new_nonce())) for point in unique]
 
+    unsupported = [
+        Held(
+            context=point.context,
+            sub_context=point.sub_context,
+            reason="context_not_supported",
+            detail=f"{point.context}/{point.sub_context} has no reviewed payload",
+            payloads_tried=0,
+        )
+        for point, attempt in candidates
+        if attempt is None
+    ]
     supported = [(point, attempt) for point, attempt in candidates if attempt is not None]
     if not supported:
         # Every occurrence sits in a context with no reviewed payload (for
         # example a comment). Say so; do not promote an untried payload.
-        held = [
-            Held(
-                context=point.context,
-                sub_context=point.sub_context,
-                reason="context_not_supported",
-                detail=f"{point.context}/{point.sub_context} has no reviewed payload",
-                payloads_tried=0,
-            )
-            for point, _ in candidates
-        ]
         return _finish(
             run,
             base.model_copy(
                 update={
-                    "tested_held": held,
-                    "totals": Totals(confirmed=0, tested_held=len(held), could_not_proceed=0),
+                    "tested_held": unsupported,
+                    "totals": Totals(
+                        confirmed=0, tested_held=len(unsupported), could_not_proceed=0
+                    ),
                 }
             ),
         )
 
-    # M4 replaces this with the headless verifier. Until then the honest answer
-    # is "could not proceed", never "no XSS" and never a finding.
-    contexts = ", ".join(
-        f"{point.context}/{point.sub_context}" for point, _ in supported
-    )
-    return _blocked(
-        run,
-        base,
-        code="INTERNAL_ERROR",
-        stage="verify",
-        reason=f"selected payload for {contexts}; browser_verification_not_implemented",
-        needs="the M4 headless browser verifier",
-    )
+    # R3: observe the payload in a real browser. A baseline navigation with a
+    # benign value runs first, so a signal that appears without the payload is
+    # caught before any candidate is trusted.
+    with BrowserSession(run) as browser:
+        if not browser.ok:
+            failure = browser.failure
+            assert failure is not None
+            return _blocked(
+                run,
+                base,
+                code=failure.code,
+                stage="browser",
+                reason=failure.reason,
+                needs=failure.needs,
+                checkpoint=failure.checkpoint,
+                held=unsupported,
+            )
+
+        baseline = browser.baseline(
+            outcome.url,
+            parameter,
+            value=outcome.marker,
+            nonces={attempt.nonce for _, attempt in supported},
+        )
+        if not baseline.ok:
+            failure = baseline.failure
+            assert failure is not None
+            return _blocked(
+                run,
+                base,
+                code=failure.code,
+                stage="baseline",
+                reason=failure.reason,
+                needs=failure.needs,
+                checkpoint=failure.checkpoint,
+                held=unsupported,
+            )
+        if baseline.executed:
+            return _blocked(
+                run,
+                base,
+                code="BROWSER_ERROR",
+                stage="baseline",
+                reason="nonce_signal_without_payload",
+                needs="a benchmark page that does not already contain the nonce",
+                held=unsupported,
+            )
+
+        held = list(unsupported)
+        observed: list[tuple[PayloadAttempt, Verification, str]] = []
+        browser_failure = None
+
+        for point, attempt in supported:
+            fid = finding_id(
+                decision.host,
+                path_of(outcome.url),
+                parameter,
+                attempt.context,
+                attempt.family,
+            )
+            verification = browser.attempt(
+                outcome.url,
+                parameter,
+                attempt.payload,
+                attempt.nonce,
+                attempt.requires_interaction,
+            )
+
+            observation_error = ""
+            try:
+                write_observation(
+                    run, decision.host, fid, outcome.url, attempt, verification
+                )
+            except Exception as exc:  # noqa: BLE001 - evidence I/O is reported, not fatal
+                observation_error = type(exc).__name__
+                run.logger.log(
+                    event="error",
+                    run_id=run.run_id,
+                    tool=run.tool,
+                    url=outcome.url,
+                    reason="observation_write_failed",
+                    detail=observation_error,
+                )
+
+            if not verification.ok:
+                browser_failure = verification.failure
+                break
+            if verification.executed:
+                observed.append((attempt, verification, observation_error))
+            else:
+                held.append(
+                    Held(
+                        context=attempt.context,
+                        sub_context=attempt.sub_context,
+                        reason="payload_did_not_execute",
+                        detail=verification.signal_detail,
+                        payloads_tried=1,
+                    )
+                )
+
+        if browser_failure is not None:
+            return _blocked(
+                run,
+                base,
+                code=browser_failure.code,
+                stage="verify",
+                reason=browser_failure.reason,
+                needs=browser_failure.needs,
+                checkpoint=browser_failure.checkpoint,
+                held=held,
+            )
+
+        if not observed:
+            return _finish(
+                run,
+                base.model_copy(
+                    update={
+                        "tested_held": held,
+                        "totals": Totals(
+                            confirmed=0, tested_held=len(held), could_not_proceed=0
+                        ),
+                    }
+                ),
+            )
+
+        # M5 replaces this with a fresh-context replay. An observed signal is a
+        # candidate, not a finding; publishing it now would skip R4.
+        contexts = ", ".join(
+            f"{attempt.context}/{attempt.sub_context}"
+            for attempt, _, _ in observed
+        )
+        return _blocked(
+            run,
+            base,
+            code="INTERNAL_ERROR",
+            stage="replay",
+            reason=(
+                f"observed {len(observed)} nonce signal(s) for {contexts}; "
+                "fresh_context_replay_not_implemented"
+            ),
+            needs="the M5 fresh-context replay",
+            held=held,
+        )
 
 
 def _invalid(run: RunContext, url: str, field: str, message: str) -> ScanResponse:

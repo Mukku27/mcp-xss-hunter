@@ -109,6 +109,17 @@ class LabHandler(BaseHTTPRequestHandler):
                     f'<div>Results for: {q}</div><input value="{q}">',
                 )
             )
+        if route == "/external":
+            # A reflected parameter plus one off-scope subresource. The probe
+            # sees only the HTML; the browser's S5 fence must stop the image.
+            target = _param(parsed.query, "to")
+            return self._send(
+                _page(
+                    "external",
+                    f'<div>Results for: {q}</div>'
+                    f'<img id="extern" src="{target}" alt="external">',
+                )
+            )
         if route == "/encoded":
             # The negative case: the marker reflects, but every dangerous
             # character is HTML-encoded, so no payload can break out.
@@ -141,11 +152,14 @@ class LabHandler(BaseHTTPRequestHandler):
 
         if route == "/meta":
             # A browser-level redirect target, used to exercise the S5 fence.
+            # q is reflected so the probe can reach this page before the browser
+            # follows the refresh.
             target = _param(parsed.query, "to")
             return self._send(
                 _page(
                     "meta",
-                    f'<p>redirecting</p><meta http-equiv="refresh" content="0;url={target}">',
+                    f'<div>Results for: {q}</div>'
+                    f'<meta http-equiv="refresh" content="0;url={target}">',
                 )
             )
 

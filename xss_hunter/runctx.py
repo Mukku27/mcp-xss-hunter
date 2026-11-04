@@ -24,6 +24,7 @@ class RunContext:
     logger: JsonlLogger
     evidence_dir: Path
     run_id: str = field(default_factory=new_run_id)
+    created_at: str = field(default_factory=utc_now)
     started: float = field(default_factory=time.monotonic)
     http_requests: int = 0
     payloads_sent: int = 0
