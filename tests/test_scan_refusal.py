@@ -59,10 +59,12 @@ def test_empty_allowlist_refuses(tmp_path):
 
 
 def test_allowed_target_does_not_claim_a_result_yet(lab, tmp_path):
-    # M2 locates the marker but has no classifier. It must say "blocked",
-    # never "no XSS", and never invent a finding.
+    # M3 classifies the marker and selects a payload, but there is no browser
+    # verifier yet. It must say "blocked", never "no XSS", and never invent a
+    # finding.
     base, host, _ = lab
     result = run(f"{base}/body", hosts=(host,), tmp_path=tmp_path)
     assert result.status == "blocked"
     assert result.confirmed == []
-    assert result.could_not_proceed[0].stage == "classify"
+    assert result.could_not_proceed[0].stage == "verify"
+    assert "html_body/html_text" in result.could_not_proceed[0].reason

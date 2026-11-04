@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .classify import classify, distinct_points
 from .ids import new_nonce
 from .logging_jsonl import JsonlLogger
 from .models import (
@@ -20,6 +21,7 @@ from .models import (
     Target,
     Totals,
 )
+from .payloads import select, select_override
 from .probe import probe
 from .result import bound_scan
 from .runctx import RunContext
@@ -189,14 +191,56 @@ def scan(
             ),
         )
 
-    # M2 stops after locating the marker. M3 replaces this with classification.
+    # R2: name the syntax around every occurrence, then choose one reviewed
+    # payload per distinct context. Classification is a hypothesis; nothing is
+    # published until the browser executes it (R3) and replay executes it again
+    # (R4).
+    points = classify(outcome.body, marker)
+    unique = distinct_points(points)
+
+    if context_override is not None:
+        # A reviewer-forced context is an explicit hypothesis, not a
+        # classification. It still has to pass the same browser proof gate.
+        candidates = [(points[0], select_override(context_override, new_nonce()))]
+    else:
+        candidates = [(point, select(point, new_nonce())) for point in unique]
+
+    supported = [(point, attempt) for point, attempt in candidates if attempt is not None]
+    if not supported:
+        # Every occurrence sits in a context with no reviewed payload (for
+        # example a comment). Say so; do not promote an untried payload.
+        held = [
+            Held(
+                context=point.context,
+                sub_context=point.sub_context,
+                reason="context_not_supported",
+                detail=f"{point.context}/{point.sub_context} has no reviewed payload",
+                payloads_tried=0,
+            )
+            for point, _ in candidates
+        ]
+        return _finish(
+            run,
+            base.model_copy(
+                update={
+                    "tested_held": held,
+                    "totals": Totals(confirmed=0, tested_held=len(held), could_not_proceed=0),
+                }
+            ),
+        )
+
+    # M4 replaces this with the headless verifier. Until then the honest answer
+    # is "could not proceed", never "no XSS" and never a finding.
+    contexts = ", ".join(
+        f"{point.context}/{point.sub_context}" for point, _ in supported
+    )
     return _blocked(
         run,
         base,
         code="INTERNAL_ERROR",
-        stage="classify",
-        reason="not_implemented",
-        needs="the M3 classifier",
+        stage="verify",
+        reason=f"selected payload for {contexts}; browser_verification_not_implemented",
+        needs="the M4 headless browser verifier",
     )
 
 
