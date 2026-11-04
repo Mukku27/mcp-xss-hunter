@@ -11,13 +11,15 @@ import re
 from pathlib import Path
 
 from .classify import classify, distinct_points
-from .evidence import write_observation, write_run, write_status
+from .evidence import write_finding, write_observation, write_run, write_status
 from .ids import finding_id, new_nonce, path_of
-from .logging_jsonl import JsonlLogger
+from .logging_jsonl import JsonlLogger, utc_now
 from .models import (
     Blocked,
     ErrorInfo,
+    Finding,
     Held,
+    ReplayProof,
     ScanResponse,
     Target,
     Totals,
@@ -75,17 +77,22 @@ def _blocked(
     needs: str,
     checkpoint: str | None = None,
     held: list[Held] | None = None,
+    confirmed: list[Finding] | None = None,
 ) -> ScanResponse:
     held = held or []
+    confirmed = confirmed or []
     return _finish(
         run,
         base.model_copy(
             update={
                 "status": "blocked",
+                "confirmed": confirmed,
                 "tested_held": held,
                 "could_not_proceed": [Blocked(stage=stage, reason=reason, needs=needs)],
                 "totals": Totals(
-                    confirmed=0, tested_held=len(held), could_not_proceed=1
+                    confirmed=len(confirmed),
+                    tested_held=len(held),
+                    could_not_proceed=1,
                 ),
                 "error": ErrorInfo(
                     code=code,
@@ -376,23 +383,149 @@ def scan(
                 ),
             )
 
-        # M5 replaces this with a fresh-context replay. An observed signal is a
-        # candidate, not a finding; publishing it now would skip R4.
-        contexts = ", ".join(
-            f"{attempt.context}/{attempt.sub_context}"
-            for attempt, _, _ in observed
-        )
-        return _blocked(
+        # R4: a second signal in a fresh context is the difference between a
+        # candidate and a finding. One signal downgrades; it never publishes.
+        findings: list[Finding] = []
+        could_not_proceed: list[Blocked] = []
+
+        for attempt, verification, observation_error in observed:
+            if not verification.screenshot:
+                could_not_proceed.append(
+                    Blocked(
+                        stage="evidence",
+                        reason="observation_screenshot_missing",
+                        needs="a browser screenshot of the first signal",
+                    )
+                )
+                continue
+
+            replay = browser.replay(
+                outcome.url,
+                parameter,
+                attempt.payload,
+                attempt.nonce,
+                attempt.requires_interaction,
+            )
+            if not replay.ok:
+                failure = replay.failure
+                assert failure is not None
+                if failure.code == "OUT_OF_SCOPE":
+                    return _blocked(
+                        run,
+                        base,
+                        code=failure.code,
+                        stage="replay",
+                        reason=failure.reason,
+                        needs=failure.needs,
+                        checkpoint=failure.checkpoint,
+                        held=held,
+                        confirmed=findings,
+                    )
+                could_not_proceed.append(
+                    Blocked(
+                        stage="replay",
+                        reason=failure.reason,
+                        needs=failure.needs,
+                    )
+                )
+                continue
+
+            if not replay.executed:
+                could_not_proceed.append(
+                    Blocked(
+                        stage="replay",
+                        reason="non_deterministic",
+                        needs="a payload that executes on both independent loads",
+                    )
+                )
+                continue
+
+            fid = finding_id(
+                decision.host,
+                path_of(base.target.url),
+                parameter,
+                attempt.context,
+                attempt.family,
+            )
+            finding = Finding(
+                finding_id=fid,
+                url=base.target.url,
+                parameter=parameter,
+                context=attempt.context,
+                sub_context=attempt.sub_context,
+                payload=attempt.payload,
+                nonce=attempt.nonce,
+                signal=verification.signal,
+                signal_detail=verification.signal_detail,
+                requires_interaction=attempt.requires_interaction,
+                replay=ReplayProof(
+                    verified=True,
+                    session="fresh",
+                    nonce=attempt.nonce,
+                    signal=replay.signal,
+                ),
+                evidence="",
+                reproduce=(
+                    f'scan_xss(url="{base.target.url}", parameter="{parameter}")'
+                ),
+                browser=verification.browser or replay.browser,
+                timestamp=utc_now(),
+            )
+
+            try:
+                stored = write_finding(
+                    run,
+                    decision.host,
+                    finding,
+                    verification.screenshot,
+                    replay.screenshot,
+                )
+            except Exception as exc:  # noqa: BLE001 - no bundle means no finding
+                run.logger.log(
+                    event="error",
+                    run_id=run.run_id,
+                    tool=run.tool,
+                    url=outcome.url,
+                    reason="finding_write_failed",
+                    detail=(
+                        f"{type(exc).__name__}; observation {observation_error or 'ok'}"
+                    ),
+                )
+                could_not_proceed.append(
+                    Blocked(
+                        stage="evidence",
+                        reason="finding_write_failed",
+                        needs="a writable evidence directory",
+                    )
+                )
+                continue
+
+            published = finding.model_copy(update={"evidence": stored.evidence})
+            findings.append(published)
+            run.logger.log(
+                event="finding",
+                run_id=run.run_id,
+                tool=run.tool,
+                url=outcome.url,
+                host=decision.host,
+                reason="confirmed",
+                detail=f"{attempt.context}/{attempt.sub_context}",
+            )
+
+        return _finish(
             run,
-            base,
-            code="INTERNAL_ERROR",
-            stage="replay",
-            reason=(
-                f"observed {len(observed)} nonce signal(s) for {contexts}; "
-                "fresh_context_replay_not_implemented"
+            base.model_copy(
+                update={
+                    "confirmed": findings,
+                    "tested_held": held,
+                    "could_not_proceed": could_not_proceed,
+                    "totals": Totals(
+                        confirmed=len(findings),
+                        tested_held=len(held),
+                        could_not_proceed=len(could_not_proceed),
+                    ),
+                }
             ),
-            needs="the M5 fresh-context replay",
-            held=held,
         )
 
 

@@ -31,7 +31,6 @@ from .runctx import RunContext
 NAVIGATION_TIMEOUT_MS = 10_000
 CLICK_TIMEOUT_MS = 3_000
 SETTLE_MS = 500
-MAX_S5_REFUSALS = 5
 MAX_SIGNAL_TEXT = 200
 MAX_MESSAGES = 20
 
@@ -128,10 +127,11 @@ _DOM_SIGNAL = """
 """
 
 _ANNOTATE = """
-([detail, nonce]) => {
+([detail, nonce, phase]) => {
   const el = document.createElement('div');
   el.setAttribute('data-xsh-proof', nonce);
-  el.textContent = 'xss-hunter observed: ' + detail + ' [nonce ' + nonce + ']';
+  el.textContent = 'xss-hunter observed (' + phase + '): ' + detail +
+    ' [nonce ' + nonce + ']';
   el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
     'background:#111;color:#fff;padding:8px;font:13px monospace;white-space:pre-wrap';
   document.documentElement.appendChild(el);
@@ -245,6 +245,7 @@ class BrowserSession:
             sorted(nonces),
             requires_interaction=False,
             activate_nonce=None,
+            phase="baseline",
         )
 
     def attempt(
@@ -279,6 +280,7 @@ class BrowserSession:
             [nonce],
             requires_interaction=requires_interaction,
             activate_nonce=nonce,
+            phase="first load",
         )
 
     def replay(
@@ -328,6 +330,7 @@ class BrowserSession:
                 [nonce],
                 requires_interaction=requires_interaction,
                 activate_nonce=nonce,
+                phase="fresh-context replay",
             )
         finally:
             try:
@@ -368,20 +371,6 @@ class BrowserSession:
 
         def on_request(event) -> None:
             request_url = event["request"]["url"]
-            if len(state.blocked) >= MAX_S5_REFUSALS:
-                # The run is already refused. Stop adding log lines, but keep
-                # failing every off-scope request.
-                try:
-                    cdp.send(
-                        "Fetch.failRequest",
-                        {
-                            "requestId": event["requestId"],
-                            "errorReason": "BlockedByClient",
-                        },
-                    )
-                except Exception:  # noqa: BLE001
-                    pass
-                return
             decision = self.run.check(request_url, "S5", log_allow=False)
             if decision.refused:
                 state.blocked.append(_truncate(request_url, 300))
@@ -419,6 +408,7 @@ class BrowserSession:
         *,
         requires_interaction: bool,
         activate_nonce: str | None,
+        phase: str,
     ) -> Verification:
         page, cdp, state = self._new_page(context)
         failure: BrowserFailure | None = None
@@ -499,7 +489,7 @@ class BrowserSession:
 
             if verification.executed and failure is None:
                 verification.screenshot, verification.screenshot_error = self._screenshot(
-                    page, signal, detail, nonces
+                    page, signal, detail, nonces, phase
                 )
             return verification
         finally:
@@ -559,11 +549,11 @@ class BrowserSession:
         )
 
     def _screenshot(
-        self, page: Page, signal: str, detail: str, nonces: list[str]
+        self, page: Page, signal: str, detail: str, nonces: list[str], phase: str
     ) -> tuple[bytes, str]:
         try:
             nonce = nonces[0] if nonces else ""
-            page.evaluate(_ANNOTATE, [f"{signal}: {detail}", nonce])
+            page.evaluate(_ANNOTATE, [f"{signal}: {detail}", nonce, phase])
             return page.screenshot(full_page=False), ""
         except PlaywrightError as exc:
             return b"", f"screenshot_failed: {_error_name(exc)}"

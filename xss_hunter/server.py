@@ -17,6 +17,7 @@ from mcp.types import CallToolResult, TextContent
 from pydantic import BaseModel
 
 from . import __version__
+from .evidence import load_evidence
 from .ids import is_finding_id
 from .logging_jsonl import JsonlLogger
 from .models import (
@@ -121,15 +122,7 @@ class Hunter:
                     needs="a finding_id returned by scan_xss",
                 ),
             )
-        # Implemented in M5 once the evidence tree exists.
-        return EvidenceResponse(
-            status="invalid",
-            error=ErrorInfo(
-                code="INVALID_INPUT",
-                message="finding not found",
-                needs="a finding_id returned by scan_xss in this repository",
-            ),
-        )
+        return load_evidence(self.evidence_dir, finding_id)
 
 
 def build_server(

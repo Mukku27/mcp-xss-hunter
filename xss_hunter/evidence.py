@@ -162,7 +162,7 @@ def _replay_markdown(finding: Finding, artifacts: list[Artifact]) -> str:
 - Payload: `{finding.payload}`
 - Nonce: `{finding.nonce}`
 - First signal: `{finding.signal}` — {finding.signal_detail}
-- Fresh-context replay: `{finding.replay.signal}` — {finding.replay.signal}
+- Fresh-context replay: `{finding.replay.signal}` — the same nonce fired again in a new browser context
 - Browser: {finding.browser}
 - Timestamp: {finding.timestamp}
 
@@ -181,6 +181,8 @@ def _replay_markdown(finding: Finding, artifacts: list[Artifact]) -> str:
 The screenshot banner is added by the verifier after the signal is observed;
 it labels the evidence, it is not the execution itself. The dialog message
 recorded in `finding.json` is the proof.
+
+`replay.md` is this file; its sha256 is recorded in `finding.json`.
 """
 
 

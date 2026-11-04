@@ -6,6 +6,7 @@ import json
 from urllib.parse import quote
 
 from xss_hunter.logging_jsonl import JsonlLogger
+from xss_hunter.evidence import load_evidence
 from xss_hunter.scan import scan
 from xss_hunter.scope import Scope
 
@@ -59,15 +60,75 @@ def test_empty_allowlist_refuses(tmp_path):
     assert any(r.reason == "empty_allowlist" for r in result.scope_refusals)
 
 
-def test_allowed_target_does_not_claim_a_result_yet(lab, tmp_path):
-    # M4 observes a real dialog but has no replay step. It must say "blocked",
-    # never "no XSS", and never publish the observed signal as a finding.
+def test_true_positive_is_confirmed_only_after_a_fresh_context_replay(lab, tmp_path):
+    # AC-01: the payload fires, then fires again in a brand-new context. Only
+    # then is it a finding, with an evidence bundle on disk.
     base, host, _ = lab
     result = run(f"{base}/body", hosts=(host,), tmp_path=tmp_path)
-    assert result.status == "blocked"
-    assert result.confirmed == []
-    assert result.could_not_proceed[0].stage == "replay"
-    assert "html_body/html_text" in result.could_not_proceed[0].reason
+
+    assert result.status == "completed"
+    assert len(result.confirmed) == 1
+    finding = result.confirmed[0]
+    assert finding.context == "html_body"
+    assert finding.sub_context == "html_text"
+    assert finding.url == f"{base}/body"
+    assert f"{base}/body" in finding.reproduce
+    assert finding.payload.startswith("<img")
+    assert finding.signal == "dialog"
+    assert finding.replay.verified is True
+    assert finding.replay.session == "fresh"
+    assert finding.replay.signal == "dialog"
+    assert finding.replay.nonce == finding.nonce
+    assert finding.evidence
+    assert result.totals.confirmed == 1
+    assert result.totals.tested_held == 0
+    assert result.limits.browser_contexts == 2
+    assert result.limits.payloads_sent == 2
+
+    loaded = load_evidence(tmp_path / "evidence", finding.finding_id)
+    assert loaded.status == "ok"
+    assert loaded.finding is not None
+    assert loaded.finding.payload == finding.payload
+    assert loaded.finding.replay.verified is True
+
+
+def test_two_reflection_points_produce_two_independent_findings(lab, tmp_path):
+    base, host, _ = lab
+    result = run(f"{base}/multi", hosts=(host,), tmp_path=tmp_path)
+
+    assert result.status == "completed"
+    assert len(result.confirmed) == 2
+    contexts = {(item.context, item.sub_context) for item in result.confirmed}
+    assert contexts == {
+        ("html_body", "html_text"),
+        ("attribute", "quoted_double"),
+    }
+    assert len({item.finding_id for item in result.confirmed}) == 2
+    for item in result.confirmed:
+        assert item.replay.verified is True
+        assert item.evidence
+
+
+def test_a_javascript_url_is_confirmed_after_the_verifier_clicks_it(lab, tmp_path):
+    base, host, _ = lab
+    result = run(f"{base}/url", hosts=(host,), tmp_path=tmp_path)
+
+    assert result.status == "completed"
+    assert len(result.confirmed) == 1
+    finding = result.confirmed[0]
+    assert finding.context == "url"
+    assert finding.requires_interaction is True
+    assert finding.payload.startswith("javascript:")
+    assert finding.replay.verified is True
+
+
+def test_finding_id_is_stable_across_runs(lab, tmp_path):
+    base, host, _ = lab
+    first = run(f"{base}/body", hosts=(host,), tmp_path=tmp_path / "one")
+    second = run(f"{base}/body", hosts=(host,), tmp_path=tmp_path / "two")
+
+    assert first.confirmed[0].finding_id == second.confirmed[0].finding_id
+    assert first.confirmed[0].nonce != second.confirmed[0].nonce
 
 
 def test_reflection_only_encoded_parameter_is_held_not_confirmed(lab, tmp_path):

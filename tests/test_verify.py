@@ -118,6 +118,7 @@ def test_replay_uses_a_fresh_context_and_fires_again(lab, tmp_path):
     assert replay.executed is True
     assert replay.signal == "dialog"
     assert nonce in replay.signal_detail
+    assert attempt.screenshot != replay.screenshot
     assert run.browser_contexts == 2
     assert run.payloads_sent == 2
 
