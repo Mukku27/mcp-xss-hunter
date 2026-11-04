@@ -1,8 +1,8 @@
 """Input validation and the scan pipeline.
 
-M1 scope: validation + the scope refusal path. The probe/classify/verify stages
-are added in M2-M5. Keeping the pipeline synchronous lets the MCP SDK run it on
-a worker thread and lets the tests call it directly.
+Stages run in the order the proof requires: scope -> probe -> classify ->
+payload -> browser -> replay -> evidence -> result. Each stage can only
+downgrade an outcome, never promote one.
 """
 
 from __future__ import annotations
@@ -10,14 +10,17 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .ids import new_nonce
 from .logging_jsonl import JsonlLogger
 from .models import (
     Blocked,
     ErrorInfo,
+    Held,
     ScanResponse,
     Target,
     Totals,
 )
+from .probe import probe
 from .result import bound_scan
 from .runctx import RunContext
 from .scope import Scope
@@ -34,6 +37,43 @@ def _base_response(run: RunContext, url: str, host: str, scope: str) -> ScanResp
         parameter=run.parameter,
         limits=run.limits(),
         totals=Totals(confirmed=0, tested_held=0, could_not_proceed=0),
+    )
+
+
+def _finish(run: RunContext, response: ScanResponse) -> ScanResponse:
+    """Stamp measured limits/refusals at the end, then bound the arrays."""
+    return bound_scan(
+        response.model_copy(
+            update={"limits": run.limits(), "scope_refusals": run.refusals}
+        )
+    )
+
+
+def _blocked(
+    run: RunContext,
+    base: ScanResponse,
+    *,
+    code: str,
+    stage: str,
+    reason: str,
+    needs: str,
+    checkpoint: str | None = None,
+) -> ScanResponse:
+    return _finish(
+        run,
+        base.model_copy(
+            update={
+                "status": "blocked",
+                "could_not_proceed": [Blocked(stage=stage, reason=reason, needs=needs)],
+                "totals": Totals(confirmed=0, tested_held=0, could_not_proceed=1),
+                "error": ErrorInfo(
+                    code=code,
+                    message=f"{stage}: {reason}",
+                    needs=needs,
+                    checkpoint=checkpoint,
+                ),
+            }
+        ),
     )
 
 
@@ -96,42 +136,74 @@ def scan(
     decision = run.check(url, "S1")
     if decision.refused:
         response = _base_response(run, decision.url, decision.host, "refused")
-        return bound_scan(
+        return _finish(
+            run,
             response.model_copy(
                 update={
                     "status": "refused",
-                    "scope_refusals": run.refusals,
                     "error": ErrorInfo(
                         code="OUT_OF_SCOPE",
                         message=f"refused at {decision.checkpoint}: {decision.reason}",
                         checkpoint=decision.checkpoint,
                     ),
                 }
-            )
+            ),
         )
 
-    # M1 stops here. The next milestone replaces this with probe -> classify ->
-    # verify. It is reported as blocked, never as "no XSS".
-    response = _base_response(run, decision.url, decision.host, "allowed")
-    return bound_scan(
-        response.model_copy(
-            update={
-                "could_not_proceed": [
-                    Blocked(
-                        stage="probe",
-                        reason="not_implemented",
-                        needs="the M2 probe stage",
-                    )
-                ],
-                "totals": Totals(confirmed=0, tested_held=0, could_not_proceed=1),
-            }
+    base = _base_response(run, decision.url, decision.host, "allowed")
+
+    marker = new_nonce()
+    outcome = probe(decision.url, parameter, marker, run)
+    if not outcome.ok:
+        failure = outcome.failure
+        assert failure is not None
+        return _blocked(
+            run,
+            base,
+            code=failure.code,
+            stage="probe",
+            reason=failure.reason,
+            needs=failure.needs,
+            checkpoint=failure.decision.checkpoint if failure.decision else None,
         )
+
+    if not outcome.reflected:
+        # R1 failed. This is a held result, never "no XSS".
+        return _finish(
+            run,
+            base.model_copy(
+                update={
+                    "tested_held": [
+                        Held(
+                            context="unknown",
+                            reason="param_not_reflected",
+                            detail=(
+                                f"marker absent from a {outcome.status_code} response "
+                                f"({outcome.body_bytes} bytes, {len(outcome.redirects)} redirects)"
+                            ),
+                            payloads_tried=0,
+                        )
+                    ],
+                    "totals": Totals(confirmed=0, tested_held=1, could_not_proceed=0),
+                }
+            ),
+        )
+
+    # M2 stops after locating the marker. M3 replaces this with classification.
+    return _blocked(
+        run,
+        base,
+        code="INTERNAL_ERROR",
+        stage="classify",
+        reason="not_implemented",
+        needs="the M3 classifier",
     )
 
 
 def _invalid(run: RunContext, url: str, field: str, message: str) -> ScanResponse:
     response = _base_response(run, url[:300], "", "unknown")
-    return bound_scan(
+    return _finish(
+        run,
         response.model_copy(
             update={
                 "status": "invalid",
@@ -142,5 +214,5 @@ def _invalid(run: RunContext, url: str, field: str, message: str) -> ScanRespons
                 ),
                 "totals": Totals(confirmed=0, tested_held=0, could_not_proceed=0),
             }
-        )
+        ),
     )

@@ -38,3 +38,21 @@ def canary():
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+@pytest.fixture
+def lab():
+    """The bundled vulnerable app on an ephemeral localhost port."""
+    from labapp.app import make_server
+
+    server = make_server(0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host = f"127.0.0.1:{server.server_port}"
+    try:
+        yield f"http://{host}", host, server
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+

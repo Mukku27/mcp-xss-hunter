@@ -58,9 +58,11 @@ def test_empty_allowlist_refuses(tmp_path):
     assert any(r.reason == "empty_allowlist" for r in result.scope_refusals)
 
 
-def test_allowed_target_does_not_claim_a_result_yet(tmp_path):
-    # M1 has no probe. It must say "blocked", never "no XSS".
-    result = run("http://127.0.0.1:5117/body", tmp_path=tmp_path)
-    assert result.status == "completed"
+def test_allowed_target_does_not_claim_a_result_yet(lab, tmp_path):
+    # M2 locates the marker but has no classifier. It must say "blocked",
+    # never "no XSS", and never invent a finding.
+    base, host, _ = lab
+    result = run(f"{base}/body", hosts=(host,), tmp_path=tmp_path)
+    assert result.status == "blocked"
     assert result.confirmed == []
-    assert result.could_not_proceed[0].reason == "not_implemented"
+    assert result.could_not_proceed[0].stage == "classify"
