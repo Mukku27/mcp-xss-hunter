@@ -10,11 +10,11 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from mcp.server import MCPServer
 from mcp.types import CallToolResult, TextContent
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import __version__
 from .evidence import load_evidence
@@ -152,8 +152,8 @@ def build_server(
 
     @server.tool(name="scan_xss", description=SCAN_DESCRIPTION)
     def scan_xss(
-        url: str,
-        parameter: str,
+        url: Annotated[str, Field(max_length=2048)],
+        parameter: Annotated[str, Field(max_length=128)],
         context_override: Literal["html_body", "attribute", "script", "url"] | None = None,
     ) -> ScanResponse:
         try:
@@ -183,7 +183,7 @@ def build_server(
         return _tool_result(result, _summary_scan(result))  # type: ignore[return-value]
 
     @server.tool(name="get_evidence", description=EVIDENCE_DESCRIPTION)
-    def get_evidence(finding_id: str) -> EvidenceResponse:
+    def get_evidence(finding_id: Annotated[str, Field(max_length=64)]) -> EvidenceResponse:
         try:
             result = hunter.evidence(finding_id)
         except Exception as exc:  # noqa: BLE001

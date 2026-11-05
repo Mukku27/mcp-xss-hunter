@@ -47,15 +47,21 @@ def _base_response(run: RunContext, url: str, host: str, scope: str) -> ScanResp
 
 
 def _finish(run: RunContext, response: ScanResponse) -> ScanResponse:
-    """Stamp measured limits/refusals at the end, then bound the arrays."""
-    bounded = bound_scan(
-        response.model_copy(
-            update={"limits": run.limits(), "scope_refusals": run.refusals}
-        )
+    """Stamp measured limits/refusals, record the full run, return a bounded copy."""
+    prepared = response.model_copy(
+        update={"limits": run.limits(), "scope_refusals": run.refusals}
     )
+    bounded = bound_scan(prepared)
     try:
-        write_run(run, bounded)
-        write_status(run, bounded)
+        # Evidence keeps every held/blocked entry even when the agent-facing
+        # response is capped; run.json still records the real totals.
+        write_run(
+            run,
+            prepared.model_copy(
+                update={"totals": bounded.totals, "truncated": bounded.truncated}
+            ),
+        )
+        write_status(run, prepared)
     except Exception as exc:  # noqa: BLE001 - evidence I/O must not crash a scan
         run.logger.log(
             event="error",
