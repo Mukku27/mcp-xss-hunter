@@ -325,6 +325,8 @@ The S5 fence pauses every request before Chrome can send it. A refused request i
 - Each navigation is capped at 10 seconds; the run budget is checked between stages and folded into
   the next operation timeout.
 - One browser context for observation plus one fresh context per replay, each discarded afterwards.
+- Chromium runs on Playwright's temporary profile; no user profile, cookie jar, or browser history is
+  persisted.
 - No cookies, auth profiles, service workers, browser-state persistence, telemetry, or external
   callbacks. Run evidence and the scope log are written to local files by design.
 
