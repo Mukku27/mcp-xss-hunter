@@ -546,7 +546,7 @@ Blocked:
 | GR-2 | `scope.py`, `logging_jsonl.py`, `verify.py` | scope suite, S5 canary, JSONL assertions | Met |
 | GR-3 | `config/scope.toml`, `labapp/` | default config audit, canary tests | Met |
 | GR-4 | all modules | 119 tests, small files, comments explain why | Met |
-| DL-1 | `README.md`, repo | fresh-clone test (`docs/validation.md` §4) | Fresh clone verified; publication pending |
+| DL-1 | `README.md`, repo | public fresh-clone test (`docs/validation.md` §4) | Met |
 | DL-2 | `docs/demo-script.md` | video recording | Pending recording |
 | DL-3 | submission email | send by 8 Nov 2026, 23:59 IST | Pending |
 | AC-01 | `verify.py`, `scan.py` | `r-20261105T053144Z-4f04` | Met |
@@ -554,7 +554,7 @@ Blocked:
 | AC-03 | `scope.py`, log | `r-20261105T053217Z-a4fb` | Met |
 | AC-04 | `probe.py` S2 | `r-20261105T053218Z-0514`, canary test | Met |
 | AC-05 | four families | four canonical runs plus textarea/json/multi | Met |
-| AC-06 | `pyproject.toml`, README setup | fresh-clone test (`docs/validation.md` §4) | Met |
+| AC-06 | `pyproject.toml`, README setup | public fresh-clone test (`docs/validation.md` §4) | Met |
 | AC-07 | `result.py` | `test_result.py`, raw stdio response check | Met |
 | AC-08 | this README | section audit | Met |
 | AC-09 | demo | runtime and content | Pending recording |

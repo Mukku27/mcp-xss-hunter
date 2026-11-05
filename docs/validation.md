@@ -204,32 +204,30 @@ Run it with `uv run pytest -q tests/test_server_stdio.py`.
 
 ## 4. Fresh clone (AC-06)
 
-Commit `eee51c4` was cloned into a new directory and set up with only the README commands:
+The public repository was cloned into a new directory and set up with only the README commands:
 
 ```bash
-git clone /path/to/mcp-xss-hunter /tmp/xsh-fresh
-cd /tmp/xsh-fresh
+git clone https://github.com/Mukku27/mcp-xss-hunter.git /tmp/xsh-public
+cd /tmp/xsh-public
 uv sync
 uv run playwright install chromium
 uv run python -m labapp
 ```
 
-Observed on Python 3.12.14 and Chromium 156.0.8078.4:
+Observed at commit `f34e106` on Python 3.12.14 and Chromium 156.0.8078.4:
 
 | Check | Result |
 |---|---|
 | `tools/list` | `scan_xss` (`url`, `parameter`), `get_evidence` (`finding_id`), `list_scope` |
-| AC-01 `/body` | 1 confirmed, `f-70a19cebb2d3`, `html_body/html_text`, replay true (`r-20261105T054302Z-ca85`) |
-| AC-02 `/encoded`, twice | 0 confirmed, 1 held each time; `payload_did_not_execute` with the payload listed (`r-20261105T054306Z-f66a`, `r-20261105T054309Z-2a09`) |
-| AC-03 `127.0.0.1:59999` | refused at S1, `http_requests: 0`, refusal line in `logs/scope.jsonl` (`r-20261105T054328Z-cb62`) |
-| AC-04 redirect escape | blocked at S2 after one request to the allowlisted redirector (`r-20261105T054329Z-9ef7`) |
+| AC-01 `/body` | 1 confirmed, `f-70a19cebb2d3`, `html_body/html_text`, replay true (`r-20261105T055501Z-a992`) |
+| AC-02 `/encoded`, twice | 0 confirmed, 1 held each time; `payload_did_not_execute` with the payload listed (`r-20261105T055505Z-ce8b`, `r-20261105T055508Z-8dc9`) |
+| AC-03 `127.0.0.1:59999` | refused at S1, `http_requests: 0`, refusal line in `logs/scope.jsonl` (`r-20261105T055511Z-83f9`) |
+| AC-04 redirect escape | blocked at S2 after one request to the allowlisted redirector (`r-20261105T055513Z-503c`) |
 | Attribute, script, URL | one confirmed finding each; URL required a click |
 | `get_evidence` | `status: ok`, 3 artifacts, hash recorded |
 | Test suite | 119 collected; `uv run pytest -q` exited 0 |
 
-The README clones the GitHub URL. This check cloned the local repository at the same commit because
-the GitHub remote was still private when it ran. The tree, lockfile, and setup commands are the same;
-re-run the clone from GitHub after publication to confirm the public path.
+The public URL in this section is the same command the README gives a reviewer.
 
 ---
 
