@@ -175,7 +175,9 @@ codex mcp add xss-hunter -- uv run --directory "$PWD" python -m xss_hunter
 
 ### Standard `mcpServers` JSON
 
-Clients that use the common `mcpServers` shape can use:
+GUI clients such as Claude Desktop, Cursor, and Windsurf use this shape. This repository did not
+exercise those UIs; the tested clients are the Inspector CLI and Codex CLI above. The server itself
+is a standard stdio server, so the shape is included for copy-paste use.
 
 ```json
 {
@@ -258,8 +260,8 @@ A successful run returns a one-line text summary plus `structuredContent`:
 }
 ```
 
-Selected fields are shown. The live response also carries `reproduce`, `timestamp`, and a top-level
-`scope_refusals` list. Arrays are capped at 3 confirmed / 4 held / 2 blocked / 2 refusals; if the
+Selected fields are shown. The finding also carries `reproduce` and `timestamp`; the live response
+carries a top-level `scope_refusals` list. Arrays are capped at 3 confirmed / 4 held / 2 blocked / 2 refusals; if the
 serialized result would exceed 4096 bytes, whole entries are dropped from the least important list
 first and `truncated` is set. `totals` always reports the real counts.
 
@@ -323,7 +325,8 @@ The S5 fence pauses every request before Chrome can send it. A refused request i
 - Each navigation is capped at 10 seconds; the run budget is checked between stages and folded into
   the next operation timeout.
 - One browser context for observation plus one fresh context per replay, each discarded afterwards.
-- No cookies, auth profiles, service workers, telemetry, external callbacks, or persistence.
+- No cookies, auth profiles, service workers, browser-state persistence, telemetry, or external
+  callbacks. Run evidence and the scope log are written to local files by design.
 
 ### Payloads
 
@@ -429,45 +432,47 @@ uv run python -m labapp
 Then run any of these in a second terminal. The Inspector CLI prints the full tool result.
 
 ```bash
-INSPECTOR='npx -y @modelcontextprotocol/inspector --cli --cwd'
-RUN='uv run python -m xss_hunter'
+inspector() {
+  npx -y @modelcontextprotocol/inspector --cli --cwd "$PWD" \
+    uv run python -m xss_hunter "$@"
+}
 
 # AC-01: true positive
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:5117/body --tool-arg parameter=q
 
 # AC-02: reflection-only negative; run it twice
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:5117/encoded --tool-arg parameter=q
 
 # AC-03: out-of-scope refusal
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:59999/never --tool-arg parameter=q
 
 # AC-04: redirect escape
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg 'url=http://127.0.0.1:5117/redirect?to=http%3A%2F%2F127.0.0.1%3A59999%2Fescape' \
   --tool-arg parameter=q
 
 # AC-05: the other three context families
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:5117/attribute --tool-arg parameter=q
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:5117/script --tool-arg parameter=q
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:5117/url --tool-arg parameter=q
 
 # Multiple reflection points
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name scan_xss \
+inspector --method tools/call --tool-name scan_xss \
   --tool-arg url=http://127.0.0.1:5117/multi --tool-arg parameter=q
 
 # Evidence lookup
-$INSPECTOR "$PWD" $RUN --method tools/call --tool-name get_evidence \
+inspector --method tools/call --tool-name get_evidence \
   --tool-arg finding_id=f-70a19cebb2d3
 ```
 
-Note: zsh treats `$INSPECTOR "$PWD" $RUN` as words, which is what these commands rely on. If you use
-a different shell, write the command out in full.
+The function works in zsh and bash. Run it from the repository root so the default scope config and
+relative evidence paths resolve.
 
 The refusal line:
 
@@ -539,7 +544,7 @@ Blocked:
 | GR-2 | `scope.py`, `logging_jsonl.py`, `verify.py` | scope suite, S5 canary, JSONL assertions | Met |
 | GR-3 | `config/scope.toml`, `labapp/` | default config audit, canary tests | Met |
 | GR-4 | all modules | 119 tests, small files, comments explain why | Met |
-| DL-1 | `README.md`, repo | fresh-clone test | Fresh-clone test pending; publication pending |
+| DL-1 | `README.md`, repo | fresh-clone test (`docs/validation.md` §4) | Fresh clone verified; publication pending |
 | DL-2 | `docs/demo-script.md` | video recording | Pending recording |
 | DL-3 | submission email | send by 8 Nov 2026, 23:59 IST | Pending |
 | AC-01 | `verify.py`, `scan.py` | `r-20261105T053144Z-4f04` | Met |
@@ -547,7 +552,7 @@ Blocked:
 | AC-03 | `scope.py`, log | `r-20261105T053217Z-a4fb` | Met |
 | AC-04 | `probe.py` S2 | `r-20261105T053218Z-0514`, canary test | Met |
 | AC-05 | four families | four canonical runs plus textarea/json/multi | Met |
-| AC-06 | `pyproject.toml`, README setup | fresh-clone test | Pending fresh-clone test |
+| AC-06 | `pyproject.toml`, README setup | fresh-clone test (`docs/validation.md` §4) | Met |
 | AC-07 | `result.py` | `test_result.py`, raw stdio response check | Met |
 | AC-08 | this README | section audit | Met |
 | AC-09 | demo | runtime and content | Pending recording |

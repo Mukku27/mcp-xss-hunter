@@ -149,7 +149,7 @@ tool_timeout_sec = 120
 Command:
 
 ```bash
-codex exec --json \
+codex exec --json --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \
   "Call list_scope, then scan_xss for http://127.0.0.1:5117/body with parameter q,
    then get_evidence for the finding_id. Report the values the tools returned."
 ```
@@ -202,7 +202,38 @@ Run it with `uv run pytest -q tests/test_server_stdio.py`.
 
 ---
 
-## 4. What did not work
+## 4. Fresh clone (AC-06)
+
+Commit `eee51c4` was cloned into a new directory and set up with only the README commands:
+
+```bash
+git clone /path/to/mcp-xss-hunter /tmp/xsh-fresh
+cd /tmp/xsh-fresh
+uv sync
+uv run playwright install chromium
+uv run python -m labapp
+```
+
+Observed on Python 3.12.14 and Chromium 156.0.8078.4:
+
+| Check | Result |
+|---|---|
+| `tools/list` | `scan_xss` (`url`, `parameter`), `get_evidence` (`finding_id`), `list_scope` |
+| AC-01 `/body` | 1 confirmed, `f-70a19cebb2d3`, `html_body/html_text`, replay true (`r-20261105T054302Z-ca85`) |
+| AC-02 `/encoded`, twice | 0 confirmed, 1 held each time; `payload_did_not_execute` with the payload listed (`r-20261105T054306Z-f66a`, `r-20261105T054309Z-2a09`) |
+| AC-03 `127.0.0.1:59999` | refused at S1, `http_requests: 0`, refusal line in `logs/scope.jsonl` (`r-20261105T054328Z-cb62`) |
+| AC-04 redirect escape | blocked at S2 after one request to the allowlisted redirector (`r-20261105T054329Z-9ef7`) |
+| Attribute, script, URL | one confirmed finding each; URL required a click |
+| `get_evidence` | `status: ok`, 3 artifacts, hash recorded |
+| Test suite | 119 collected; `uv run pytest -q` exited 0 |
+
+The README clones the GitHub URL. This check cloned the local repository at the same commit because
+the GitHub remote was still private when it ran. The tree, lockfile, and setup commands are the same;
+re-run the clone from GitHub after publication to confirm the public path.
+
+---
+
+## 5. What did not work
 
 Claude Code 2.1.318 was installed and its MCP configuration loaded, but a headless `claude -p` turn
 exited 1 before any tool call:
