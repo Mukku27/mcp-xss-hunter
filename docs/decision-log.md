@@ -315,5 +315,6 @@ rather than hidden.
 4. **The URL context needs a click.** It is marked, not hidden.
 5. **One payload per family.** A blocked payload does not prove the surface is safe; it proves this
    attempt did not execute.
-6. **The video and the public repository are still manual steps.** The code, evidence, tests, and
-   script are ready.
+6. **The demo is `docs/demo.mp4` (2:58).** Codex drove the tools in a terminal. Narration is the
+   macOS Samantha voice, not a microphone. The public repository is up. The submission email is
+   still unsent.

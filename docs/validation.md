@@ -242,3 +242,23 @@ OAuth session expired and could not be refreshed
 
 It is not counted as a tested client. The server's stdio handshake was not the failure; the CLI could
 not authenticate. Re-testing with a fresh login is a reasonable follow-up before the call.
+
+---
+
+## 6. Demo recording
+
+`docs/demo.mp4` was assembled from terminal recordings of the commands in `docs/demo-script.md`.
+Codex made the tool calls. The narration track is macOS Samantha.
+
+```bash
+ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo.mp4
+```
+
+Observed: `178.433333` seconds, 1920×1080, H.264 video and AAC audio.
+
+| Beat | What is on screen |
+|---|---|
+| Confirmed | `r-20261105T060356Z-cb86`, `f-70a19cebb2d3`, dialog nonce `xsh3539450a`, replay verified, then `proof.png` and `replay.png` |
+| Held | `r-20261105T063248Z-a1d7`, 0 confirmed, 1 held, `payload_did_not_execute` |
+| Refused | `r-20261105T063337Z-073e`, `OUT_OF_SCOPE` at S1, JSONL `refuse` for `127.0.0.1:59999` |
+| Close | CDP tradeoff, reflected-only limitation, repository URL |

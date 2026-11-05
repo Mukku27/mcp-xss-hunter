@@ -3,8 +3,9 @@
 The recording is the one deliverable that has to be made on a machine with a microphone. This script
 is the plan; the repository ships everything it calls.
 
-**Status:** script and commands ready, video not recorded. Add the unlisted URL to the README before
-submission.
+**Status:** recorded as [`docs/demo.mp4`](demo.mp4). `ffprobe` reports 178.433333 seconds.
+Narration is the macOS Samantha voice, named in the opening frame. The submission email is still
+unsent.
 
 ---
 
@@ -226,7 +227,8 @@ Say:
 ## After recording
 
 - Runtime must be 2:00–3:00. Check the file duration, not the stopwatch.
-- Verify the negative case and the refusal are both in the final cut.
-- Upload unlisted (YouTube, Loom, or similar) and open the link in a private window.
-- Put the link in the README's Demo section and in the submission email.
+  `docs/demo.mp4` measures 178.433333 seconds.
+- The negative case and the refusal are both in that cut.
+- The file is in the repository. The README links to the GitHub blob, which plays in a browser.
+- Put that link in the submission email. The email has not been sent.
 - Optional cleanup: `codex mcp remove xss-hunter`.

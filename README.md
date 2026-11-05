@@ -413,15 +413,24 @@ gate.
 
 ## 10. Demo
 
-The 2–3 minute demo follows [`docs/demo-script.md`](docs/demo-script.md). It is scripted to show an
-agent calling `list_scope`, `scan_xss`, and `get_evidence`; a confirmed finding with the dialog nonce
-and the fresh-context replay; the `/encoded` negative case returning 0 confirmed; and an out-of-scope
-refusal with the JSONL line on screen.
+[`docs/demo.mp4`](docs/demo.mp4) is the recording. `ffprobe` reports `178.433333` seconds (2:58) at
+1920×1080. On the public repository it plays at:
 
-Video link: `<add the unlisted video URL before submission>`
+https://github.com/Mukku27/mcp-xss-hunter/blob/main/docs/demo.mp4
 
-The recording is the one deliverable this repository cannot generate by itself. The script includes
-the exact commands and the beats that must be visible.
+The picture is the terminal. Codex calls `list_scope`, `scan_xss`, and `get_evidence`. Narration is
+the macOS Samantha voice, and the opening frame says so. The cut shows:
+
+- `/body` run `r-20261105T060356Z-cb86`: finding `f-70a19cebb2d3`, `html_body/html_text`, dialog
+  nonce `xsh3539450a`, fresh-context replay verified. The stored `proof.png` and `replay.png` from
+  that run are on screen. The banner in those files is a label written after the dialog.
+- `/encoded` run `r-20261105T063248Z-a1d7`: 0 confirmed, 1 held, reason `payload_did_not_execute`.
+- `http://127.0.0.1:59999/never` run `r-20261105T063337Z-073e`: refused at S1, `http_requests: 0`,
+  and the JSONL `refuse` line (`host_not_allowlisted`).
+- The CDP fence tradeoff and the reflected-only limitation, then the repository URL.
+
+The commands and the storyboard are in [`docs/demo-script.md`](docs/demo-script.md). The submission
+email is still unsent.
 
 ## Reproduce the claims
 
@@ -547,7 +556,7 @@ Blocked:
 | GR-3 | `config/scope.toml`, `labapp/` | default config audit, canary tests | Met |
 | GR-4 | all modules | 119 tests, small files, comments explain why | Met |
 | DL-1 | `README.md`, repo | public fresh-clone test (`docs/validation.md` §4) | Met |
-| DL-2 | `docs/demo-script.md` | video recording | Pending recording |
+| DL-2 | `docs/demo.mp4` | 2:58 terminal recording, Codex driving the tools | Met |
 | DL-3 | submission email | send by 8 Nov 2026, 23:59 IST | Pending |
 | AC-01 | `verify.py`, `scan.py` | `r-20261105T053144Z-4f04` | Met |
 | AC-02 | proof gate | `r-20261105T053148Z-af59`, `r-20261105T053151Z-7386`; test run twice | Met |
@@ -557,7 +566,7 @@ Blocked:
 | AC-06 | `pyproject.toml`, README setup | public fresh-clone test (`docs/validation.md` §4) | Met |
 | AC-07 | `result.py` | `test_result.py`, raw stdio response check | Met |
 | AC-08 | this README | section audit | Met |
-| AC-09 | demo | runtime and content | Pending recording |
+| AC-09 | `docs/demo.mp4` | `ffprobe` duration 178.4 s; confirmed, held, and refusal on screen | Met |
 | AC-10 | scope + lab only | git history, logs, evidence audit | Met |
 | AC-11 | Reproduce section | every cited run ID has a command | Met |
 
