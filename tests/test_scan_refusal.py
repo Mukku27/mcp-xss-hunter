@@ -72,6 +72,8 @@ def test_true_positive_is_confirmed_only_after_a_fresh_context_replay(lab, tmp_p
     assert finding.context == "html_body"
     assert finding.sub_context == "html_text"
     assert finding.url == f"{base}/body"
+    assert finding.injection_url.startswith(f"{base}/body?q=")
+    assert "onerror" in finding.injection_url
     assert f"{base}/body" in finding.reproduce
     assert finding.payload.startswith("<img")
     assert finding.signal == "dialog"
@@ -131,6 +133,20 @@ def test_finding_id_is_stable_across_runs(lab, tmp_path):
     assert first.confirmed[0].nonce != second.confirmed[0].nonce
 
 
+def test_run_budget_is_bounded_and_reported(monkeypatch, tmp_path):
+    # Force the wall-clock budget to be already spent. The run must stop before
+    # any network request and name the budget, not report "no XSS".
+    import xss_hunter.runctx as runctx
+
+    monkeypatch.setattr(runctx, "RUN_BUDGET_SECONDS", 0.0)
+    result = run("http://127.0.0.1:5117/body", tmp_path=tmp_path)
+
+    assert result.status == "blocked"
+    assert result.error.code == "TIMEOUT"
+    assert result.limits.http_requests == 0
+    assert result.could_not_proceed[0].needs
+
+
 def test_reflection_only_encoded_parameter_is_held_not_confirmed(lab, tmp_path):
     # The money test, run twice: the marker reflects, the payload does not
     # execute, and the run is a held result with a specific reason.
@@ -145,7 +161,11 @@ def test_reflection_only_encoded_parameter_is_held_not_confirmed(lab, tmp_path):
         assert result.confirmed == [], attempt
         assert result.could_not_proceed == [], attempt
         assert len(result.tested_held) == 1, attempt
-        assert result.tested_held[0].reason == "payload_did_not_execute", attempt
+        held = result.tested_held[0]
+        assert held.reason == "payload_did_not_execute", attempt
+        assert held.payloads_tried == 1, attempt
+        assert held.payloads and "onerror" in held.payloads[0], attempt
+        assert "nonce" in held.detail, attempt
         assert result.totals.confirmed == 0, attempt
 
 

@@ -1,0 +1,39 @@
+{
+  "allowlist": [
+    "127.0.0.1:3000",
+    "127.0.0.1:5117",
+    "127.0.0.1:8080",
+    "localhost:3000",
+    "localhost:5117",
+    "localhost:8080"
+  ],
+  "error": {
+    "checkpoint": "S2",
+    "code": "OUT_OF_SCOPE",
+    "message": "probe: redirect_refused_host_not_allowlisted",
+    "needs": "an allowlisted redirect target"
+  },
+  "finished_at": "2026-11-05T05:32:18.671+00:00",
+  "limits": {
+    "browser_contexts": 0,
+    "duration_ms": 17,
+    "http_requests": 1,
+    "payloads_sent": 0
+  },
+  "parameter": "q",
+  "run_id": "r-20261105T053218Z-0514",
+  "started_at": "2026-11-05T05:32:18.653+00:00",
+  "status": "blocked",
+  "target": {
+    "host": "127.0.0.1:5117",
+    "scope": "allowed",
+    "url": "http://127.0.0.1:5117/redirect?to=http%3A%2F%2F127.0.0.1%3A59999%2Fescape"
+  },
+  "tool": "scan_xss",
+  "totals": {
+    "confirmed": 0,
+    "could_not_proceed": 1,
+    "tested_held": 0
+  },
+  "truncated": false
+}

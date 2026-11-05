@@ -38,6 +38,7 @@ class ReplayProof(BaseModel):
 class Finding(BaseModel):
     finding_id: str
     url: str
+    injection_url: str = ""
     parameter: str
     context: str
     sub_context: str
@@ -58,6 +59,7 @@ class Held(BaseModel):
     sub_context: str | None = None
     reason: str
     detail: str
+    payloads: list[str] = Field(default_factory=list)
     payloads_tried: int = 0
 
 
@@ -114,6 +116,7 @@ class Evidence(BaseModel):
     run_id: str
     evidence: str
     url: str
+    injection_url: str = ""
     parameter: str
     context: str
     sub_context: str

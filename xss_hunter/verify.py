@@ -26,7 +26,7 @@ from playwright.sync_api import (
 )
 
 from .probe import with_parameter
-from .runctx import RunContext
+from .runctx import BUDGET_NEEDS, RunContext
 
 NAVIGATION_TIMEOUT_MS = 10_000
 CLICK_TIMEOUT_MS = 3_000
@@ -410,18 +410,29 @@ class BrowserSession:
         activate_nonce: str | None,
         phase: str,
     ) -> Verification:
+        remaining_ms = int(self.run.remaining_seconds() * 1000)
+        if remaining_ms <= 0:
+            return Verification(
+                failure=BrowserFailure(
+                    code="TIMEOUT",
+                    reason="run_budget_exhausted",
+                    needs=BUDGET_NEEDS,
+                    detail="the 30-second run budget expired before navigation",
+                )
+            )
+        timeout_ms = min(NAVIGATION_TIMEOUT_MS, remaining_ms)
         page, cdp, state = self._new_page(context)
         failure: BrowserFailure | None = None
         activation = ""
         try:
             try:
-                page.goto(url, wait_until="load", timeout=NAVIGATION_TIMEOUT_MS)
+                page.goto(url, wait_until="load", timeout=timeout_ms)
             except PlaywrightTimeoutError:
                 failure = BrowserFailure(
                     code="TIMEOUT",
                     reason="browser_navigation_timeout",
                     needs="a faster target or a higher timeout",
-                    detail=f"no load within {NAVIGATION_TIMEOUT_MS} ms",
+                    detail=f"no load within {timeout_ms} ms",
                 )
             except PlaywrightError as exc:
                 message = str(exc)

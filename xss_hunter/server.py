@@ -41,7 +41,8 @@ the payload executes and then executes again in a fresh browser context.
 
 Returns confirmed findings only, plus tested_held (tried and did not execute) and
 could_not_proceed (blocked). Refuses hosts outside the allowlist before sending a
-request and records the refusal in logs/scope.jsonl. Default budget: 30 seconds.
+request and records the refusal in logs/scope.jsonl. The run budget is 30 seconds,
+checked between stages and applied to the next network or browser operation.
 """
 
 EVIDENCE_DESCRIPTION = """\

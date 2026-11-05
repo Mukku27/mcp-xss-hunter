@@ -1,0 +1,43 @@
+{
+  "artifacts": [
+    {
+      "bytes": 14918,
+      "path": "evidence/127_0_0_1_5117/r-20261105T053144Z-4f04/findings/f-70a19cebb2d3/proof.png",
+      "sha256": "72db3dea90a067c474e9565e381bfeba3721e51305ae37321e7a6a300b50a73f"
+    },
+    {
+      "bytes": 15454,
+      "path": "evidence/127_0_0_1_5117/r-20261105T053144Z-4f04/findings/f-70a19cebb2d3/replay.png",
+      "sha256": "5f1d01f706a6acf84a378ba3f6d492e2a8a85d0ec8dbfa2c95a2e94a87364c64"
+    },
+    {
+      "bytes": 1425,
+      "path": "evidence/127_0_0_1_5117/r-20261105T053144Z-4f04/findings/f-70a19cebb2d3/replay.md",
+      "sha256": "10632822804d3c093a79925857cd0ac2eed3fbcb419083e706596363c0398257"
+    }
+  ],
+  "browser": "chromium/156.0.8078.4",
+  "context": "html_body",
+  "evidence": "evidence/127_0_0_1_5117/r-20261105T053144Z-4f04/findings/f-70a19cebb2d3",
+  "finding_id": "f-70a19cebb2d3",
+  "finding_sha256": "f09e3e2ee633d19db61c47c64b404e7ed7940a423d03bc746fbde283256df1a2",
+  "injection_url": "http://127.0.0.1:5117/body?q=%3Cimg+src%3Dx+onerror%3Dalert%28%27xsh589ab985%27%29%3E",
+  "nonce": "xsh589ab985",
+  "parameter": "q",
+  "payload": "<img src=x onerror=alert('xsh589ab985')>",
+  "replay": {
+    "nonce": "xsh589ab985",
+    "session": "fresh",
+    "signal": "dialog",
+    "verified": true
+  },
+  "reproduce": "scan_xss(url=\"http://127.0.0.1:5117/body\", parameter=\"q\")",
+  "requires_interaction": false,
+  "run_id": "r-20261105T053144Z-4f04",
+  "screenshot": "proof.png",
+  "signal": "dialog",
+  "signal_detail": "dialog message contained the nonce: xsh589ab985",
+  "sub_context": "html_text",
+  "timestamp": "2026-11-05T05:31:47.016+00:00",
+  "url": "http://127.0.0.1:5117/body"
+}

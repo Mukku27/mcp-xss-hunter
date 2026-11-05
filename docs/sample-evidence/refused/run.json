@@ -1,0 +1,39 @@
+{
+  "allowlist": [
+    "127.0.0.1:3000",
+    "127.0.0.1:5117",
+    "127.0.0.1:8080",
+    "localhost:3000",
+    "localhost:5117",
+    "localhost:8080"
+  ],
+  "error": {
+    "checkpoint": "S1",
+    "code": "OUT_OF_SCOPE",
+    "message": "refused at S1: host_not_allowlisted",
+    "needs": null
+  },
+  "finished_at": "2026-11-05T05:32:17.467+00:00",
+  "limits": {
+    "browser_contexts": 0,
+    "duration_ms": 0,
+    "http_requests": 0,
+    "payloads_sent": 0
+  },
+  "parameter": "q",
+  "run_id": "r-20261105T053217Z-a4fb",
+  "started_at": "2026-11-05T05:32:17.467+00:00",
+  "status": "refused",
+  "target": {
+    "host": "127.0.0.1:59999",
+    "scope": "refused",
+    "url": "http://127.0.0.1:59999/never"
+  },
+  "tool": "scan_xss",
+  "totals": {
+    "confirmed": 0,
+    "could_not_proceed": 0,
+    "tested_held": 0
+  },
+  "truncated": false
+}

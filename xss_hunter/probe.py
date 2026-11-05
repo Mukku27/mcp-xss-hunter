@@ -14,7 +14,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import httpx
 
-from .runctx import RunContext
+from .runctx import BUDGET_NEEDS, RunContext
 from .scope import ScopeDecision
 
 MAX_REDIRECTS = 5
@@ -80,12 +80,12 @@ def with_parameter(url: str, parameter: str, value: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", query, parsed.fragment))
 
 
-def _get_once(url: str) -> httpx.Response:
+def _get_once(url: str, timeout: float) -> httpx.Response:
     # A new client per hop: no cookie jar carries across hosts or hops, and no
     # auth profile exists to leak.
     with httpx.Client(
         follow_redirects=False,
-        timeout=TIMEOUT_SECONDS,
+        timeout=timeout,
         headers={
             "User-Agent": USER_AGENT,
             "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
@@ -120,8 +120,23 @@ def probe(url: str, parameter: str, marker: str, run: RunContext) -> ProbeOutcom
             )
         current = decision.url
 
+        remaining = run.remaining_seconds()
+        if remaining <= 0:
+            return ProbeOutcome(
+                url=current,
+                marker=marker,
+                redirects=redirects,
+                failure=ProbeFailure(
+                    code="TIMEOUT",
+                    reason="run_budget_exhausted",
+                    needs=BUDGET_NEEDS,
+                    detail="the 30-second run budget expired before the probe",
+                ),
+            )
+
+        timeout = min(TIMEOUT_SECONDS, remaining)
         try:
-            response = _get_once(current)
+            response = _get_once(current, timeout)
         except httpx.TimeoutException:
             return ProbeOutcome(
                 url=current,
@@ -131,7 +146,7 @@ def probe(url: str, parameter: str, marker: str, run: RunContext) -> ProbeOutcom
                     code="TIMEOUT",
                     reason="probe_timeout",
                     needs="a faster target or a higher timeout",
-                    detail=f"no response within {TIMEOUT_SECONDS:g}s",
+                    detail=f"no response within {timeout:g}s",
                 ),
             )
         except httpx.HTTPError as exc:

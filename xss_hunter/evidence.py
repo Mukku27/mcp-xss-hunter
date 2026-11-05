@@ -158,6 +158,7 @@ def _replay_markdown(finding: Finding, artifacts: list[Artifact]) -> str:
 
 - Target: `{finding.url}`
 - Parameter: `{finding.parameter}`
+- Injection URL: `{finding.injection_url}`
 - Context: `{finding.context}/{finding.sub_context}`
 - Payload: `{finding.payload}`
 - Nonce: `{finding.nonce}`

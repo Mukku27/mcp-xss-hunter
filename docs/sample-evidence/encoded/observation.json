@@ -1,0 +1,21 @@
+{
+  "activation": "",
+  "browser": "chromium/156.0.8078.4",
+  "consoles": [],
+  "context": "html_body",
+  "dialogs": [],
+  "family": "html_text",
+  "final_url": "http://127.0.0.1:5117/encoded?q=%3Cimg+src%3Dx+onerror%3Dalert%28%27xsh1a2e7b1f%27%29%3E",
+  "finding_id": "f-2406a0c4c83e",
+  "nonce": "xsh1a2e7b1f",
+  "payload": "<img src=x onerror=alert('xsh1a2e7b1f')>",
+  "requires_interaction": false,
+  "screenshot": null,
+  "screenshot_error": "",
+  "signal": "none",
+  "signal_detail": "no signal contained the nonce (dialogs=0, console=0)",
+  "sub_context": "html_text",
+  "timestamp": "2026-11-05T05:31:49.668+00:00",
+  "url": "http://127.0.0.1:5117/encoded?q=xshb8fd0a64",
+  "why": "A text node accepts a new element; onerror fires without interaction."
+}

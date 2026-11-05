@@ -20,6 +20,8 @@ MAX_BLOCKED = 2
 MAX_REFUSALS = 2
 MAX_DETAIL = 160
 MAX_SIGNAL_DETAIL = 160
+MAX_PAYLOAD = 300
+MAX_HELD_PAYLOADS = 3
 MAX_REPRODUCE = 240
 MAX_EVIDENCE = 240
 MAX_URL = 600
@@ -78,7 +80,15 @@ def bound_scan(response: ScanResponse) -> ScanResponse:
                 for finding in response.confirmed[:MAX_CONFIRMED]
             ],
             "tested_held": [
-                entry.model_copy(update={"detail": _trim(entry.detail, MAX_DETAIL)})
+                entry.model_copy(
+                    update={
+                        "detail": _trim(entry.detail, MAX_DETAIL),
+                        "payloads": [
+                            _trim(payload, MAX_PAYLOAD)
+                            for payload in entry.payloads[:MAX_HELD_PAYLOADS]
+                        ],
+                    }
+                )
                 for entry in response.tested_held[:MAX_HELD]
             ],
             "could_not_proceed": response.could_not_proceed[:MAX_BLOCKED],

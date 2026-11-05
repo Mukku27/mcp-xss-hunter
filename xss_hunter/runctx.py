@@ -15,6 +15,12 @@ from .logging_jsonl import JsonlLogger, ScopeGuard, utc_now
 from .models import Limits, ScopeRefusal
 from .scope import Scope, ScopeDecision
 
+# A run is bounded in wall-clock time as well as request count. The deadline is
+# checked between stages and folded into the next network/browser timeout, so a
+# slow target cannot extend one run indefinitely.
+RUN_BUDGET_SECONDS = 30.0
+BUDGET_NEEDS = "a faster target or a larger run budget"
+
 
 @dataclass
 class RunContext:
@@ -55,3 +61,10 @@ class RunContext:
             payloads_sent=self.payloads_sent,
             browser_contexts=self.browser_contexts,
         )
+
+    def remaining_seconds(self) -> float:
+        """Time left in the run budget; never negative."""
+        return max(0.0, RUN_BUDGET_SECONDS - (time.monotonic() - self.started))
+
+    def expired(self) -> bool:
+        return self.remaining_seconds() <= 0.0

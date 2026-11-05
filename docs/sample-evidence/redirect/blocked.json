@@ -1,0 +1,16 @@
+{
+  "could_not_proceed": [
+    {
+      "needs": "an allowlisted redirect target",
+      "reason": "redirect_refused_host_not_allowlisted",
+      "stage": "probe"
+    }
+  ],
+  "error": {
+    "checkpoint": "S2",
+    "code": "OUT_OF_SCOPE",
+    "message": "probe: redirect_refused_host_not_allowlisted",
+    "needs": "an allowlisted redirect target"
+  },
+  "run_id": "r-20261105T053218Z-0514"
+}

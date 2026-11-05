@@ -25,9 +25,9 @@ from .models import (
     Totals,
 )
 from .payloads import PayloadAttempt, select, select_override
-from .probe import probe
+from .probe import probe, with_parameter
 from .result import bound_scan
-from .runctx import RunContext
+from .runctx import BUDGET_NEEDS, RunContext
 from .scope import Scope
 from .verify import BrowserSession, Verification
 
@@ -267,6 +267,16 @@ def scan(
     # R3: observe the payload in a real browser. A baseline navigation with a
     # benign value runs first, so a signal that appears without the payload is
     # caught before any candidate is trusted.
+    if run.expired():
+        return _blocked(
+            run,
+            base,
+            code="TIMEOUT",
+            stage="browser",
+            reason="run_budget_exhausted",
+            needs=BUDGET_NEEDS,
+            held=unsupported,
+        )
     with BrowserSession(run) as browser:
         if not browser.ok:
             failure = browser.failure
@@ -317,6 +327,16 @@ def scan(
         browser_failure = None
 
         for point, attempt in supported:
+            if run.expired():
+                return _blocked(
+                    run,
+                    base,
+                    code="TIMEOUT",
+                    stage="verify",
+                    reason="run_budget_exhausted",
+                    needs=BUDGET_NEEDS,
+                    held=held,
+                )
             fid = finding_id(
                 decision.host,
                 path_of(outcome.url),
@@ -360,6 +380,7 @@ def scan(
                         sub_context=attempt.sub_context,
                         reason="payload_did_not_execute",
                         detail=verification.signal_detail,
+                        payloads=[attempt.payload],
                         payloads_tried=1,
                     )
                 )
@@ -395,6 +416,15 @@ def scan(
         could_not_proceed: list[Blocked] = []
 
         for attempt, verification, observation_error in observed:
+            if run.expired():
+                could_not_proceed.append(
+                    Blocked(
+                        stage="replay",
+                        reason="run_budget_exhausted",
+                        needs=BUDGET_NEEDS,
+                    )
+                )
+                continue
             if not verification.screenshot:
                 could_not_proceed.append(
                     Blocked(
@@ -456,6 +486,7 @@ def scan(
             finding = Finding(
                 finding_id=fid,
                 url=base.target.url,
+                injection_url=with_parameter(outcome.url, parameter, attempt.payload),
                 parameter=parameter,
                 context=attempt.context,
                 sub_context=attempt.sub_context,

@@ -48,9 +48,10 @@ def held(index: int = 0) -> Held:
         sub_context="html_text",
         reason="payload_did_not_execute",
         detail=(
-            "the nonce was reflected but no dialog, DOM marker, or console "
-            f"message carried it after two independent loads (attempt {index})"
+            "no nonce signal after two independent loads "
+            f"(attempt {index})"
         ),
+        payloads=[f"<img src=x onerror=alert('{NONCE}')>"],
         payloads_tried=1,
     )
 

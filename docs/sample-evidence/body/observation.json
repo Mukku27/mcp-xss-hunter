@@ -1,0 +1,29 @@
+{
+  "activation": "",
+  "browser": "chromium/156.0.8078.4",
+  "consoles": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "context": "html_body",
+  "dialogs": [
+    "xsh589ab985"
+  ],
+  "family": "html_text",
+  "final_url": "http://127.0.0.1:5117/body?q=%3Cimg+src%3Dx+onerror%3Dalert%28%27xsh589ab985%27%29%3E",
+  "finding_id": "f-70a19cebb2d3",
+  "nonce": "xsh589ab985",
+  "payload": "<img src=x onerror=alert('xsh589ab985')>",
+  "requires_interaction": false,
+  "screenshot": {
+    "bytes": 14918,
+    "path": "evidence/127_0_0_1_5117/r-20261105T053144Z-4f04/observations/f-70a19cebb2d3/observe.png",
+    "sha256": "72db3dea90a067c474e9565e381bfeba3721e51305ae37321e7a6a300b50a73f"
+  },
+  "screenshot_error": "",
+  "signal": "dialog",
+  "signal_detail": "dialog message contained the nonce: xsh589ab985",
+  "sub_context": "html_text",
+  "timestamp": "2026-11-05T05:31:46.419+00:00",
+  "url": "http://127.0.0.1:5117/body?q=xshaede8a51",
+  "why": "A text node accepts a new element; onerror fires without interaction."
+}

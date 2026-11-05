@@ -1,0 +1,15 @@
+{
+  "run_id": "r-20261105T053148Z-af59",
+  "tested_held": [
+    {
+      "context": "html_body",
+      "detail": "no signal contained the nonce (dialogs=0, console=0)",
+      "payloads": [
+        "<img src=x onerror=alert('xsh1a2e7b1f')>"
+      ],
+      "payloads_tried": 1,
+      "reason": "payload_did_not_execute",
+      "sub_context": "html_text"
+    }
+  ]
+}
