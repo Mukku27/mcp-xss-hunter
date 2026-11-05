@@ -2,7 +2,7 @@
 
 Two real MCP clients were exercised against the final server. The Python SDK client in
 `tests/test_server_stdio.py` is a third caller. The negotiated protocol revision was `2025-11-25` in
-every case.
+every case. A raw `initialize` request asking for `2026-07-28` also received `2025-11-25`.
 
 Commands below use `/abs/path/to/mcp-xss-hunter`; substitute the checkout path. The lab must be
 running (`uv run python -m labapp`).

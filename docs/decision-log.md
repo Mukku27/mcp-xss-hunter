@@ -25,7 +25,8 @@ framework would add code without adding proof.
 Return-type annotations generate the output schemas.
 
 **Evidence.** The server negotiates protocol revision `2025-11-25` with the Inspector CLI, Codex CLI,
-and the Python SDK client. A client that requested `2026-07-28` still received `2025-11-25`.
+and the Python SDK client. A raw `initialize` request that asked for `2026-07-28` received
+`2025-11-25`.
 
 **Why it matters.** The implementation plan warned that the SDK documentation and the negotiated
 revision could differ. They do. The README and submission claim `2025-11-25` only. A future review

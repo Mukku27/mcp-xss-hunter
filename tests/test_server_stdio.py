@@ -63,7 +63,7 @@ def run_client(tmp_path: Path) -> dict:
 def test_stdio_client_can_list_and_call_every_tool(tmp_path):
     result = run_client(tmp_path)
 
-    assert result["protocol"]
+    assert result["protocol"] == "2025-11-25"
     names = [name for name, _ in result["tools"]]
     assert names == ["scan_xss", "get_evidence", "list_scope"]
     scan_schema = dict(result["tools"])["scan_xss"]
