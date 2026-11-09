@@ -4,8 +4,16 @@ This app exists so every acceptance test is reproducible from a clean clone
 without pulling a third-party container. It binds 127.0.0.1 only, sends no
 external requests, and must never be deployed anywhere.
 
-Every route is intentionally unsafe. The point is to make the four injection
-contexts and one reflection-only negative case deterministic.
+Two layers share the server:
+
+* ``site`` renders an ordinary storefront (``/``, ``/catalog``, ``/products``,
+  ``/support``, ``/share``, ``/reviews``, ``/search``, ``/suggest``) with no
+  vulnerability labels, so a scan target looks like a real page and the sinks
+  are not announced.
+* The canonical routes below (``/body``, ``/attribute``, ``/script``,
+  ``/url``, ``/encoded``, ``/multi``, redirects) keep the four injection
+  contexts and the reflection-only negative case deterministic for the
+  acceptance tests and the demo. They are linked from nothing.
 """
 
 from __future__ import annotations
@@ -15,6 +23,8 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
+
+from . import site
 
 BANNER = (
     '<div style="border:2px solid #b00;padding:8px;margin-bottom:16px;'
@@ -58,15 +68,32 @@ class LabHandler(BaseHTTPRequestHandler):
 
         if route == "/health":
             return self._send(b"ok", content_type="text/plain")
+        if route == "/assets/site.css":
+            return self._send(
+                site.CSS.encode("utf-8"), content_type="text/css; charset=utf-8"
+            )
         if route == "/":
-            links = "".join(
-                f'<li><a href="{path}?q=test">{path}</a></li>'
-                for path in (
-                    "/body", "/attribute", "/script", "/url",
-                    "/encoded", "/multi", "/textarea", "/json",
+            return self._send(site.home())
+        if route == "/catalog":
+            return self._send(
+                site.catalog(
+                    _param(parsed.query, "q"),
+                    _param(parsed.query, "sort"),
+                    _param(parsed.query, "page"),
                 )
             )
-            return self._send(_page("lab", f"<ul>{links}</ul>"))
+        if route == "/products":
+            return self._send(site.products(_param(parsed.query, "sku")))
+        if route == "/support":
+            return self._send(site.support(_param(parsed.query, "topic")))
+        if route == "/share":
+            return self._send(site.share(_param(parsed.query, "next")))
+        if route == "/reviews":
+            return self._send(site.reviews(_param(parsed.query, "q")))
+        if route == "/search":
+            return self._send(site.search_form())
+        if route == "/suggest":
+            return self._send(site.suggest())
         if route == "/body":
             # C1: raw marker lands directly in a text node.
             return self._send(_page("body", f"<div>Results for: {q}</div>"))
@@ -164,6 +191,18 @@ class LabHandler(BaseHTTPRequestHandler):
             )
 
         return self._send(_page("not found", "<p>not found</p>"), status=404)
+
+    def do_POST(self):  # noqa: N802 - stdlib naming
+        # Diagnostic route for the scorecard: the search term is only echoed
+        # here, never on a GET response, so a GET-only scan cannot see a sink.
+        parsed = urlsplit(self.path)
+        if parsed.path != "/search":
+            return self._send(
+                _page("not found", "<p>not found</p>"), status=404
+            )
+        length = int(self.headers.get("Content-Length") or 0)
+        form = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
+        return self._send(site.search_results((form.get("q") or [""])[0]))
 
 
 def make_server(port: int = 5117) -> ThreadingHTTPServer:
