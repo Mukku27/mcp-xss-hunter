@@ -392,8 +392,14 @@ gate.
 
 ## 9. Limitations
 
+The bundled lab now also serves a normal-looking storefront (`/catalog`, `/products`, `/support`,
+`/share`, `/reviews`) whose sinks are not labelled. The canonical acceptance routes are unchanged
+and are linked from nowhere. [`docs/lab-trials.md`](docs/lab-trials.md) records what the tool found
+on those pages, then on local Juice Shop and local DVWA.
+
 - **Reflected input only.** The classifier sees what the server returns. DOM-only sinks (for example
-  Juice Shop's search) and stored XSS are out of scope.
+  Juice Shop's search) and stored XSS are out of scope. Measured, not assumed: see
+  [`docs/lab-trials.md`](docs/lab-trials.md).
 - **One parameter, one URL, GET query string.** No crawling, forms, headers, JSON bodies, or
   multi-step flows.
 - **No authentication.** No cookies, sessions, or logged-in profiles are used or accepted.

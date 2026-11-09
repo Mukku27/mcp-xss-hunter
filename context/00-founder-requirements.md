@@ -458,21 +458,31 @@ These were written in the application email. Contradicting them in the artifact 
 
 | Req | Implemented in (file/function) | Verified by (test / demo timestamp) | Status |
 |-----|-------------------------------|-------------------------------------|--------|
-| FR-1 | | | ☐ |
-| FR-2 | | | ☐ |
-| FR-3 | | | ☐ |
-| FR-4 | | | ☐ |
-| FR-5 | | | ☐ |
-| FR-6 | | | ☐ |
-| FR-7 | | | ☐ |
-| GR-1 | | | ☐ |
-| GR-2 | | | ☐ |
-| GR-3 | | | ☐ |
-| GR-4 | | | ☐ |
-| DL-1 | | | ☐ |
-| DL-2 | | | ☐ |
-| DL-3 | | | ☐ |
-| AC-01 … AC-11 | | | ☐ |
+| FR-1 | `server.py` `scan_xss`, `scan.py` `scan()` | `tests/test_server_stdio.py`; live MCP `scan_xss(url, parameter)` 2026-11-07 | Met |
+| FR-2 | `classify.py`, `payloads.py` | `test_classify.py`, `test_payloads.py`, `test_scan_contexts.py`; live `/body` `/attribute` `/script` `/url` 2026-11-07 | Met |
+| FR-3 | `verify.py` `BrowserSession` | `test_verify.py`, `test_scan_refusal.py` AC-02 twice; live `/encoded` held 2026-11-07 | Met |
+| FR-4 | `models.py` `Finding`, `scan.py` publish path, `evidence.py` | Confirmed list empty on `/encoded`; findings carry payload + dialog + replay | Met |
+| FR-5 | `scan.py` stages S0–R5 | Unit suites per stage + full-pipeline tests | Met |
+| FR-6 | `classify.distinct_points`, `scan.py` loop | `test_two_reflection_points_produce_two_independent_findings`; live `/multi` | Met |
+| FR-7 | `models.Finding` `context`/`sub_context`/`injection_url` | `finding.json` + live MCP structuredContent | Met |
+| GR-1 | `server.py` stdio MCP, `result.py` 4 KB cap | Inspector CLI, Codex CLI 0.166.0, Python SDK; live protocol `2025-11-25` | Met |
+| GR-2 | `scope.py`, `logging_jsonl.py`, `probe.py` S2, `verify.py` S5 | Scope suite + canary tests; live S1/S2 refusals with JSONL 2026-11-07 | Met |
+| GR-3 | `config/scope.toml`, `labapp/` | Default lab-only hosts; tests use local canary; no public scan target | Met |
+| GR-4 | small modules under `xss_hunter/` | 122 pytest, comments explain why | Met |
+| DL-1 | `README.md`, public repo | Setup / tools / design choices / safety / limitations present | Met |
+| DL-2 | `docs/demo.mp4` (existing); **fresh Loom still to record** | Old clip is 2:58 Codex session; author will record a new walkthrough | Pending re-record |
+| DL-3 | submission email | Unsent as of 2026-11-07 | Pending |
+| AC-01 | `scan.py` + `verify.py` | `tests/test_scan_refusal.py`; sample `docs/sample-evidence/body` finding `f-70a19cebb2d3` in run `r-20261105T053144Z-4f04`; full pytest 2026-11-09 | Met |
+| AC-02 | proof gate | Live MCP `/encoded` 0 confirmed, 1 held `payload_did_not_execute`; pytest twice | Met |
+| AC-03 | `scope.py` S1 | Live MCP `127.0.0.1:59999` refused, `http_requests: 0`, JSONL refuse | Met |
+| AC-04 | `probe.py` S2 | Live MCP `/redirect?to=…:59999` blocked, `http_requests: 1` | Met |
+| AC-05 | four families | Live `/body` `/attribute` `/script` `/url` (+ `/textarea` `/json`) 2026-11-07 | Met |
+| AC-06 | `pyproject.toml`, README setup | `uv run python -m xss_hunter`; Inspector `tools/list` exit 0 | Met |
+| AC-07 | `result.py` | Live `/body` structured JSON 1325 bytes; `/multi` 2214 bytes | Met |
+| AC-08 | `README.md` | Sections 4–9 present | Met |
+| AC-09 | new Loom video | Not recorded yet; do not reuse `docs/demo.mp4` as the author's walkthrough | Pending |
+| AC-10 | allowlist + lab bind | Scope bypass probes refused with 0 requests; lab is `127.0.0.1` only | Met |
+| AC-11 | README reproduce commands | Re-ran documented AC-01–AC-05 paths 2026-11-07 | Met |
 
 ---
 
